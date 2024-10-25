@@ -2,7 +2,7 @@
 
 Peer-to-peer screen sharing using PeerJS. Allows two users to connect directly and share their screens. Also audio(untested).
 
-![image](https://github.com/user-attachments/assets/6279fbbb-4bf8-4a23-8d63-c091c9e975b7)
+<img width="943" alt="image" src="https://github.com/user-attachments/assets/d0058650-7c40-4d48-bcf0-8c168e8c0501">
 
 
 ## Features
