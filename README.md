@@ -1,6 +1,9 @@
 # PairScreen - Simple Peer-to-Peer Screen Sharing
 
-Basic implementation of peer-to-peer screen sharing using PeerJS. Allows two users to connect directly and share their screens. Also audio(untested).
+Peer-to-peer screen sharing using PeerJS. Allows two users to connect directly and share their screens. Also audio(untested).
+
+![image](https://github.com/user-attachments/assets/6279fbbb-4bf8-4a23-8d63-c091c9e975b7)
+
 
 ## Features
 
@@ -30,7 +33,6 @@ Basic implementation of peer-to-peer screen sharing using PeerJS. Allows two use
 
 ## Remarks
 
-* I know google meet exists, I actually got the idea from there, but using a local html file to accomplish dual screenshare is much more impressive in my opinion. 
 * Peerjs is just too easy! I never thought it would be this easy when I first googled it.
 * The people who created the concept of utility classes had god level creativity! Oh, I love tailwind so much.
 * Vue.js is pretty great too. It was the first time I used it so I might have missed some places I could have used it but didn't. I don't think so though, the applications of dynamic variables are so broad that its really obvious where to use it.
