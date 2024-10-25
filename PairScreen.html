@@ -1,0 +1,248 @@
+<html><head><base href="https://pairscreen.stream/"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>PairScreen - Peer-to-Peer Screen Sharing</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+<script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+<style>
+.screen-container {
+  aspect-ratio: 16/9;
+  background: #1a1a1a;
+}
+.btn {
+  @apply font-bold py-2 px-4 rounded transition duration-300 ease-in-out;
+}
+.btn-primary {
+  @apply bg-blue-500 text-white hover:bg-blue-600;
+}
+.btn-danger {
+  @apply bg-red-500 text-white hover:bg-red-600;
+}
+#connection-status {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  z-index: 100;
+}
+.online {
+  background: #22c55e;
+  color: white;
+}
+.offline {
+  background: #ef4444;
+  color: white;
+}
+</style></head><body class="bg-gray-900 text-white">
+
+<div id="app" class="container mx-auto p-4">
+  <div id="connection-status" :class="isConnected ? 'online' : 'offline'">
+    {{ isConnected ? 'Connected' : 'Disconnected' }}
+  </div>
+
+  <div class="mb-8 text-center">
+    <h1 class="text-3xl font-bold mb-4">PairScreen</h1>
+    <div v-if="!isConnected" class="space-y-4">
+      <div class="flex justify-center space-x-4">
+        <input type="text" v-model="peerId" placeholder="Your ID" readonly
+          class="px-4 py-2 rounded bg-gray-800 border border-gray-700">
+        <button @click="copyPeerId" class="btn btn-primary">Copy ID</button>
+      </div>
+      <div class="flex justify-center space-x-4">
+        <input type="text" v-model="remotePeerId" placeholder="Enter partner's ID"
+          class="px-4 py-2 rounded bg-gray-800 border border-gray-700">
+        <button @click="connect" class="btn btn-primary">Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="space-y-4">
+      <div class="screen-container relative">
+        <video ref="localVideo" autoplay muted playsinline 
+          class="w-full h-full object-contain bg-gray-800 rounded-lg"></video>
+        <div class="absolute bottom-4 left-4 space-x-2">
+          <button @click="toggleLocalVideo" class="btn btn-primary">
+            {{ isLocalVideoSharing ? 'Stop Sharing' : 'Share Screen' }}
+          </button>
+          <button @click="toggleLocalAudio" class="btn btn-primary">
+            {{ isLocalAudioSharing ? 'Mute' : 'Unmute' }}
+          </button>
+        </div>
+      </div>
+      <div class="text-center text-lg font-semibold">Your Screen</div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="screen-container relative">
+        <video ref="remoteVideo" autoplay playsinline 
+          class="w-full h-full object-contain bg-gray-800 rounded-lg"></video>
+        <div class="absolute bottom-4 right-4">
+          <button @click="toggleRemoteAudio" class="btn btn-primary">
+            {{ isRemoteAudioMuted ? 'Unmute Partner' : 'Mute Partner' }}
+          </button>
+        </div>
+      </div>
+      <div class="text-center text-lg font-semibold">Partner's Screen</div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const { createApp, ref, onMounted, onBeforeUnmount } = Vue;
+
+createApp({
+  setup() {
+    const peer = new Peer();
+    const localVideo = ref(null);
+    const remoteVideo = ref(null);
+    const peerId = ref('');
+    const remotePeerId = ref('');
+    const isConnected = ref(false);
+    const isLocalVideoSharing = ref(false);
+    const isLocalAudioSharing = ref(false);
+    const isRemoteAudioMuted = ref(false);
+    
+    let currentConnection = null;
+    let localStream = null;
+
+    const copyPeerId = () => {
+      navigator.clipboard.writeText(peerId.value);
+      alert('ID copied to clipboard!');
+    };
+
+    const connect = () => {
+      if (!remotePeerId.value) return;
+      
+      const conn = peer.connect(remotePeerId.value);
+      setupConnection(conn);
+      
+      const call = peer.call(remotePeerId.value, new MediaStream());
+      setupCall(call);
+    };
+
+    const setupConnection = (conn) => {
+      currentConnection = conn;
+      conn.on('open', () => {
+        isConnected.value = true;
+      });
+      
+      conn.on('close', () => {
+        isConnected.value = false;
+        remoteVideo.value.srcObject = null;
+      });
+    };
+
+    const setupCall = (call) => {
+      call.on('stream', (remoteStream) => {
+        remoteVideo.value.srcObject = remoteStream;
+      });
+    };
+
+    const toggleLocalVideo = async () => {
+      try {
+        if (isLocalVideoSharing.value) {
+          if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+          }
+          localVideo.value.srcObject = null;
+          isLocalVideoSharing.value = false;
+        } else {
+          localStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true
+          });
+          
+          localVideo.value.srcObject = localStream;
+          isLocalVideoSharing.value = true;
+
+          // Send stream to peer if connected
+          if (currentConnection && isConnected.value) {
+            const call = peer.call(currentConnection.peer, localStream);
+            setupCall(call);
+          }
+
+          // Handle stream end
+          localStream.getVideoTracks()[0].onended = () => {
+            isLocalVideoSharing.value = false;
+            localStream = null;
+            localVideo.value.srcObject = null;
+          };
+        }
+      } catch (error) {
+        alert('Error accessing media devices:', error);
+      }
+    };
+
+    const toggleLocalAudio = async () => {
+      if (!localStream) {
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            audio: true
+          });
+          isLocalAudioSharing.value = true;
+        } catch (error) {
+          alert('Error accessing audio:', error);
+          return;
+        }
+      }
+
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      isLocalAudioSharing.value = !isLocalAudioSharing.value;
+    };
+
+    const toggleRemoteAudio = () => {
+      if (remoteVideo.value) {
+        remoteVideo.value.muted = !remoteVideo.value.muted;
+        isRemoteAudioMuted.value = remoteVideo.value.muted;
+      }
+    };
+
+    onMounted(() => {
+      peer.on('open', (id) => {
+        peerId.value = id;
+      });
+
+      peer.on('connection', (conn) => {
+        setupConnection(conn);
+      });
+
+      peer.on('call', (call) => {
+        call.answer(localStream);
+        setupCall(call);
+      });
+    });
+
+    onBeforeUnmount(() => {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      if (currentConnection) {
+        currentConnection.close();
+      }
+      peer.destroy();
+    });
+
+    return {
+      localVideo,
+      remoteVideo,
+      peerId,
+      remotePeerId,
+      isConnected,
+      isLocalVideoSharing,
+      isLocalAudioSharing,
+      isRemoteAudioMuted,
+      copyPeerId,
+      connect,
+      toggleLocalVideo,
+      toggleLocalAudio,
+      toggleRemoteAudio
+    };
+  }
+}).mount('#app');
+</script>
+
+</body></html>
